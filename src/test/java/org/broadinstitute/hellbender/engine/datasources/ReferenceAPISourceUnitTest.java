@@ -7,7 +7,6 @@ import com.google.cloud.dataflow.sdk.testing.TestPipeline;
 import com.google.cloud.genomics.dataflow.utils.GCSOptions;
 import com.google.cloud.genomics.dataflow.utils.GenomicsOptions;
 import com.google.cloud.genomics.utils.GenomicsFactory;
-
 import htsjdk.samtools.SAMSequenceDictionary;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -29,15 +28,19 @@ public class ReferenceAPISourceUnitTest extends BaseTest {
     private ReferenceBases queryReferenceAPI( final String referenceName, final SimpleInterval interval, int pageSize ) {
         final Pipeline p = setupPipeline();
 
-        ReferenceAPISource refAPISource = new ReferenceAPISource(p.getOptions(), ReferenceAPISource.URL_PREFIX + referenceName);
+        ReferenceAPISource refAPISource = makeReferenceAPISource(referenceName, p);
         return refAPISource.getReferenceBases(p.getOptions(), interval, pageSize);
     }
 
     private ReferenceBases queryReferenceAPI( final String referenceName, final SimpleInterval interval ) {
         final Pipeline p = setupPipeline();
 
-        ReferenceAPISource refAPISource = new ReferenceAPISource(p.getOptions(), ReferenceAPISource.URL_PREFIX + referenceName);
+        ReferenceAPISource refAPISource = makeReferenceAPISource(referenceName, p);
         return refAPISource.getReferenceBases(p.getOptions(), interval);
+    }
+
+    private ReferenceAPISource makeReferenceAPISource(String referenceName, Pipeline p) {
+        return new ReferenceAPISource(p.getOptions(), ReferenceAPISource.URL_PREFIX + referenceName);
     }
 
     private Pipeline setupPipeline() {
@@ -89,7 +92,13 @@ public class ReferenceAPISourceUnitTest extends BaseTest {
         checkSequenceDictionary(seq, expected);
     }
 
-
+    @Test(groups = "cloud")
+    public void testCreateByAssemblyID() throws Exception {
+        final Pipeline p = setupPipeline();
+        final ReferenceAPISource apiSourceByAssemblyName = ReferenceAPISource.fromReferenceSetAssemblyID(p.getOptions(), ReferenceAPISource.HS37D5_ASSEMBLY_ID);
+        final ReferenceAPISource apiSourceByID = makeReferenceAPISource(ReferenceAPISource.HS37D5_REF_ID, p);
+        Assert.assertEquals(apiSourceByAssemblyName.getReferenceMap(), apiSourceByID.getReferenceMap());
+    }
 
     @Test(groups = "cloud")
     public void testDummy() {
@@ -104,7 +113,7 @@ public class ReferenceAPISourceUnitTest extends BaseTest {
         options.setProject(getGCPTestProject());
 
         final Pipeline p = TestPipeline.create(options); // We don't use GATKTestPipeline because we need specific options.
-        ReferenceAPISource refAPISource = new ReferenceAPISource(p.getOptions(), ReferenceAPISource.URL_PREFIX + referenceName);
+        ReferenceAPISource refAPISource = makeReferenceAPISource(referenceName, p);
         ReferenceBases bases = refAPISource.getReferenceBases(p.getOptions(), interval);
         final String actual = new String(bases.getBases());
         Assert.assertEquals(actual, expected, "Wrong bases returned");
