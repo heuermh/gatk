@@ -168,7 +168,7 @@ public abstract class GATKSparkTool extends SparkCommandLineProgram {
         // TODO: This if statement is a temporary hack until #959 gets resolved.
         if (readInput.endsWith(".adam")) {
             try {
-                return readsSource.getADAMReads(readInput, getHeaderForReads());
+                return readsSource.getADAMReads(readInput, intervals, getHeaderForReads());
             } catch (IOException e) {
                 throw new UserException("Failed to read ADAM file " + readInput);
             }
