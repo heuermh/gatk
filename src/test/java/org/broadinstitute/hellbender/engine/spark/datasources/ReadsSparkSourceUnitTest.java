@@ -25,7 +25,7 @@ public class ReadsSparkSourceUnitTest extends BaseTest {
         String dir = "src/test/resources/org/broadinstitute/hellbender/tools/BQSR/";
         return new Object[][]{
                 {dir + "HiSeq.1mb.1RG.2k_lines.alternate.bam"},
-                {dir + "expected.HiSeq.1mb.1RG.2k_lines.bqsr.DIQ.alternate.bam"},
+                {dir + "expected.HiSeq.1mb.1RG.2k_lines.alternate.recalibrated.DIQ.bam"},
         };
     }
 

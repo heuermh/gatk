@@ -45,6 +45,13 @@ public final class StandardCovariateList implements Iterable<Covariate>, Seriali
     }
 
     /**
+     * Returns 2. ReadGroupCovariate and  QualityScoreCovariate are special
+     */
+    public int numberOfSpecialCovariates() {
+        return 2;
+    }
+
+    /**
      * Returns the list of simple class names of standard covariates. The returned list is unmodifiable.
      * For example CycleCovariate.
      */
@@ -133,4 +140,5 @@ public final class StandardCovariateList implements Iterable<Covariate>, Seriali
     public Covariate getCovariateByParsedName(final String covName) {
         return allCovariates.stream().filter(cov -> cov.parseNameForReport().equals(covName)).findFirst().orElse(null);
     }
+
 }
