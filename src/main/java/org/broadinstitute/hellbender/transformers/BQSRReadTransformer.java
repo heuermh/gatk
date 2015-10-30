@@ -11,8 +11,7 @@ import org.broadinstitute.hellbender.utils.recalibration.*;
 import org.broadinstitute.hellbender.utils.recalibration.covariates.StandardCovariateList;
 
 import java.io.File;
-import java.util.ArrayList;
-import java.util.List;
+import java.util.Arrays;
 
 import static org.broadinstitute.hellbender.utils.MathUtils.fastRound;
 import static org.broadinstitute.hellbender.utils.QualityUtils.boundQual;
@@ -140,7 +139,9 @@ public final class BQSRReadTransformer implements ReadTransformer {
 
         //Reuse this list to avoid object allocation for every base
         //Note: we could move it out of this method to reuse across reads too
-        final List<RecalDatum> empiricalQualCovs = new ArrayList<>(nonSpecialCovariateCount);
+//        final List<RecalDatum> empiricalQualCovs = new ArrayList<>(nonSpecialCovariateCount);
+        //We'll keep reusing the same array for all bases
+        final RecalDatum[] empiricalQualCovs = new RecalDatum[nonSpecialCovariateCount];
 
         //Note: this loop is under very heavy use in applyBQSR. Keep it slim.
         for (int offset = 0; offset < readLength; offset++) { // recalibrate all bases in the read
@@ -150,14 +151,14 @@ public final class BQSRReadTransformer implements ReadTransformer {
             if (origQual < preserveQLessThan) {
                 continue;
             }
-            empiricalQualCovs.clear();//reuse the list
+            Arrays.fill(empiricalQualCovs, null);  //clear the array
             final int[] keySet = fullReadKeySet[offset];
             final RecalDatum empiricalQualQS = recalibrationTables.getQualityScoreTable().get(keySet[0], keySet[1], baseSubstitutionIndex);
             for (int i = specialCovariateCount; i < totalCovariateCount; i++) {
                 if (keySet[i] < 0) {
                     continue;
                 }
-                empiricalQualCovs.add(recalibrationTables.getTable(i).get(keySet[0], keySet[1], keySet[i], baseSubstitutionIndex));
+                empiricalQualCovs[i - specialCovariateCount] = recalibrationTables.getTable(i).get(keySet[0], keySet[1], keySet[i], baseSubstitutionIndex);
             }
 
             final double recalibratedQualDouble = hierarchicalBayesianQualityEstimate(epsilon, empiricalQualRG, empiricalQualQS, empiricalQualCovs);
@@ -176,13 +177,26 @@ public final class BQSRReadTransformer implements ReadTransformer {
         return read;
     }
 
-    //TODO extract common subexpressions
-    public static double hierarchicalBayesianQualityEstimate( final double epsilon, final RecalDatum empiricalQualRG, final RecalDatum empiricalQualQS, final List<RecalDatum> empiricalQualCovs ) {
+    public static double hierarchicalBayesianQualityEstimate( final double epsilon,
+                                                              final RecalDatum empiricalQualRG,
+                                                              final RecalDatum empiricalQualQS,
+                                                              final RecalDatum... empiricalQualCovs ) {
         final double globalDeltaQ = ( empiricalQualRG == null ? 0.0 : empiricalQualRG.getEmpiricalQuality(epsilon) - epsilon );
-        final double deltaQReported = ( empiricalQualQS == null ? 0.0 : empiricalQualQS.getEmpiricalQuality(globalDeltaQ + epsilon) - (globalDeltaQ + epsilon) );
+
+        final double deltaQReported;
+        if (empiricalQualQS == null) {
+            deltaQReported = 0.0;
+        } else {
+            final double conditionalPrior1 = globalDeltaQ + epsilon;
+            deltaQReported = empiricalQualQS.getEmpiricalQuality(conditionalPrior1) - conditionalPrior1;
+        }
+
         double deltaQCovariates = 0.0;
+        final double conditionalPrior2 = deltaQReported + globalDeltaQ + epsilon;
         for( final RecalDatum empiricalQualCov : empiricalQualCovs ) {
-            deltaQCovariates += ( empiricalQualCov == null ? 0.0 : empiricalQualCov.getEmpiricalQuality(deltaQReported + globalDeltaQ + epsilon) - (deltaQReported + globalDeltaQ + epsilon) );
+            if (empiricalQualCov != null) {
+                deltaQCovariates += empiricalQualCov.getEmpiricalQuality(conditionalPrior2) - conditionalPrior2;
+            }
         }
 
         return epsilon + globalDeltaQ + deltaQReported + deltaQCovariates;
