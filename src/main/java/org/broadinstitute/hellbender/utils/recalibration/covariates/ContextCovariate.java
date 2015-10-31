@@ -29,8 +29,6 @@ public final class ContextCovariate implements Covariate {
     private static final int LENGTH_BITS = 4;
     private static final int LENGTH_MASK = 15;
 
-    private static final Integer MINUSONE = -1;
-
 
     // the maximum context size (number of bases) permitted; we need to keep the leftmost base free so that values are
     // not negative and we reserve 4 more bits to represent the length of the context; it takes 2 bits to encode one base.
@@ -164,7 +162,7 @@ public final class ContextCovariate implements Covariate {
 
         // the first contextSize-1 bases will not have enough previous context
         for (int i = 1; i < contextSize && i <= readLength; i++) {
-            keys.add(MINUSONE);
+            keys.add(-1);
         }
 
         if (readLength < contextSize) {
@@ -207,7 +205,7 @@ public final class ContextCovariate implements Covariate {
                 keys.add(currentKey);
             } else {
                 currentNPenalty--;
-                keys.add(MINUSONE);
+                keys.add(-1);
             }
         }
 
