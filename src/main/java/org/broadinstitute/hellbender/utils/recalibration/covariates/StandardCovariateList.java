@@ -24,6 +24,8 @@ public final class StandardCovariateList implements Iterable<Covariate>, Seriali
     private final List<Covariate> additionalCovariates;
     private final List<Covariate> allCovariates;
 
+    private final Map<Class<? extends Covariate>, Integer> indexByClass;
+
     /**
      * Creates a new list of standard BQSR covariates and initializes each covariate.
      */
@@ -35,6 +37,12 @@ public final class StandardCovariateList implements Iterable<Covariate>, Seriali
 
         additionalCovariates = Collections.unmodifiableList(Arrays.asList(contextCovariate, cycleCovariate));
         allCovariates = Collections.unmodifiableList(Arrays.asList(readGroupCovariate, qualityScoreCovariate, contextCovariate, cycleCovariate));
+
+        //precompute for faster lookup (shows up on profile)
+        indexByClass= new HashMap<>();
+        for(int i = 0; i < allCovariates.size(); i++){
+            indexByClass.put(allCovariates.get(i).getClass(), i);
+        }
     }
 
     /**
@@ -112,13 +120,7 @@ public final class StandardCovariateList implements Iterable<Covariate>, Seriali
      * Returns the index of the covariate by class name or -1 if not found.
      */
     public int indexByClass(final Class<? extends Covariate> clazz){
-        for(int i = 0; i < allCovariates.size(); i++){
-            final Covariate cov = allCovariates.get(i);
-            if (cov.getClass().equals(clazz))  {
-                return i;
-            }
-        }
-        return -1;
+        return indexByClass.getOrDefault(clazz, -1);
     }
 
     /**
@@ -126,11 +128,11 @@ public final class StandardCovariateList implements Iterable<Covariate>, Seriali
      * record the values in the provided storage object.
       */
     public void recordAllValuesInStorage(final GATKRead read, final SAMFileHeader header, final ReadCovariates resultsStorage) {
-        forEach(cov -> {
-            final int index = indexByClass(cov.getClass());
-            resultsStorage.setCovariateIndex(index);
+        for (int i = 0, n= allCovariates.size(); i < n; i++) {
+            final Covariate cov = allCovariates.get(i);
+            resultsStorage.setCovariateIndex(i);
             cov.recordValues(read, header, resultsStorage);
-        });
+        }
     }
 
     /**

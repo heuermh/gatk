@@ -3,18 +3,18 @@ package org.broadinstitute.hellbender.utils.recalibration.covariates;
 import htsjdk.samtools.SAMFileHeader;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.apache.parquet.it.unimi.dsi.fastutil.ints.IntArrayList;
+import org.apache.parquet.it.unimi.dsi.fastutil.ints.IntList;
 import org.broadinstitute.hellbender.exceptions.GATKException;
 import org.broadinstitute.hellbender.exceptions.UserException;
-import org.broadinstitute.hellbender.utils.recalibration.ReadCovariates;
-import org.broadinstitute.hellbender.utils.recalibration.RecalibrationArgumentCollection;
 import org.broadinstitute.hellbender.utils.BaseUtils;
 import org.broadinstitute.hellbender.utils.clipping.ClippingRepresentation;
 import org.broadinstitute.hellbender.utils.clipping.ReadClipper;
 import org.broadinstitute.hellbender.utils.read.GATKRead;
+import org.broadinstitute.hellbender.utils.recalibration.ReadCovariates;
+import org.broadinstitute.hellbender.utils.recalibration.RecalibrationArgumentCollection;
 
-import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.List;
 
 public final class ContextCovariate implements Covariate {
     private static final long serialVersionUID = 1L;
@@ -66,8 +66,10 @@ public final class ContextCovariate implements Covariate {
         final byte[] originalBases = Arrays.copyOf(read.getBases(), read.getLength());
         final byte[] strandedBases = getStrandedBytes(read, lowQualTail);
 
-        final List<Integer> mismatchKeys = contextWith(strandedBases, mismatchesContextSize, mismatchesKeyMask);
-        final List<Integer> indelKeys = contextWith(strandedBases, indelsContextSize, indelsKeyMask);
+        //Note: we're using a non-standard library here because boxing came up on profiling as taking 20% of time in applyBQSR.
+        //IntList avoids boxing
+        final IntList mismatchKeys = contextWith(strandedBases, mismatchesContextSize, mismatchesKeyMask);
+        final IntList indelKeys = contextWith(strandedBases, indelsContextSize, indelsKeyMask);
 
         final int readLength = strandedBases.length;
 
@@ -78,14 +80,16 @@ public final class ContextCovariate implements Covariate {
             // don't both zeroing out if we are going to overwrite the whole array
             for ( int i = 0; i < originalBases.length; i++ )
                 // this base has been clipped off, so zero out the covariate values here
+            {
                 values.addCovariate(0, 0, 0, i);
+            }
         }
 
         final boolean negativeStrand = read.isReverseStrand();
         for (int i = 0; i < readLength; i++) {
             final int readOffset = getStrandedOffset(negativeStrand, i, readLength);
-            final int indelKey = indelKeys.get(i);
-            values.addCovariate(mismatchKeys.get(i), indelKey, indelKey, readOffset);
+            final int indelKey = indelKeys.getInt(i);
+            values.addCovariate(mismatchKeys.getInt(i), indelKey, indelKey, readOffset);
         }
 
         // put the original bases back in
@@ -153,10 +157,10 @@ public final class ContextCovariate implements Covariate {
      * @param contextSize context size to use building the context
      * @param mask        mask for pulling out just the context bits
      */
-    private static List<Integer> contextWith(final byte[] bases, final int contextSize, final int mask) {
+    private static IntList contextWith(final byte[] bases, final int contextSize, final int mask) {
 
         final int readLength = bases.length;
-        final List<Integer> keys = new ArrayList<>(readLength);
+        final IntList keys = new IntArrayList(readLength);
 
         // the first contextSize-1 bases will not have enough previous context
         for (int i = 1; i < contextSize && i <= readLength; i++) {
@@ -203,7 +207,7 @@ public final class ContextCovariate implements Covariate {
                 keys.add(currentKey);
             } else {
                 currentNPenalty--;
-                keys.add(-1);
+                keys.add(MINUSONE);
             }
         }
 

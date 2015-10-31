@@ -139,7 +139,6 @@ public final class BQSRReadTransformer implements ReadTransformer {
 
         //Reuse this list to avoid object allocation for every base
         //Note: we could move it out of this method to reuse across reads too
-//        final List<RecalDatum> empiricalQualCovs = new ArrayList<>(nonSpecialCovariateCount);
         //We'll keep reusing the same array for all bases
         final RecalDatum[] empiricalQualCovs = new RecalDatum[nonSpecialCovariateCount];
 
@@ -155,10 +154,9 @@ public final class BQSRReadTransformer implements ReadTransformer {
             final int[] keySet = fullReadKeySet[offset];
             final RecalDatum empiricalQualQS = recalibrationTables.getQualityScoreTable().get(keySet[0], keySet[1], baseSubstitutionIndex);
             for (int i = specialCovariateCount; i < totalCovariateCount; i++) {
-                if (keySet[i] < 0) {
-                    continue;
+                if (keySet[i] >= 0) {
+                    empiricalQualCovs[i - specialCovariateCount] = recalibrationTables.getTable(i).get(keySet[0], keySet[1], keySet[i], baseSubstitutionIndex);
                 }
-                empiricalQualCovs[i - specialCovariateCount] = recalibrationTables.getTable(i).get(keySet[0], keySet[1], keySet[i], baseSubstitutionIndex);
             }
 
             final double recalibratedQualDouble = hierarchicalBayesianQualityEstimate(epsilon, empiricalQualRG, empiricalQualQS, empiricalQualCovs);
