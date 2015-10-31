@@ -58,7 +58,7 @@ public final class ContextCovariate implements Covariate {
     }
 
     @Override
-    public void recordValues(final GATKRead read, final SAMFileHeader header, final ReadCovariates values) {
+    public void recordValues(final GATKRead read, final SAMFileHeader header, final ReadCovariates values, final boolean recordIndelValues) {
 
         // store the original bases and then write Ns over low quality ones
         final byte[] originalBases = Arrays.copyOf(read.getBases(), read.getLength());
@@ -67,7 +67,6 @@ public final class ContextCovariate implements Covariate {
         //Note: we're using a non-standard library here because boxing came up on profiling as taking 20% of time in applyBQSR.
         //IntList avoids boxing
         final IntList mismatchKeys = contextWith(strandedBases, mismatchesContextSize, mismatchesKeyMask);
-        final IntList indelKeys = contextWith(strandedBases, indelsContextSize, indelsKeyMask);
 
         final int readLength = strandedBases.length;
 
@@ -76,18 +75,28 @@ public final class ContextCovariate implements Covariate {
         // due to the clipping of the low quality bases
         if ( readLength != originalBases.length ) {
             // don't both zeroing out if we are going to overwrite the whole array
-            for ( int i = 0; i < originalBases.length; i++ )
+            for ( int i = 0; i < originalBases.length; i++ ){
                 // this base has been clipped off, so zero out the covariate values here
-            {
                 values.addCovariate(0, 0, 0, i);
             }
         }
 
         final boolean negativeStrand = read.isReverseStrand();
-        for (int i = 0; i < readLength; i++) {
-            final int readOffset = getStrandedOffset(negativeStrand, i, readLength);
-            final int indelKey = indelKeys.getInt(i);
-            values.addCovariate(mismatchKeys.getInt(i), indelKey, indelKey, readOffset);
+
+        //Note: duplicated the loop to avoid checking recordIndelValues on each iteration
+        if (recordIndelValues) {
+            final IntList indelKeys = contextWith(strandedBases, indelsContextSize, indelsKeyMask);
+            for (int i = 0; i < readLength; i++) {
+                final int readOffset = getStrandedOffset(negativeStrand, i, readLength);
+                final int indelKey = indelKeys.getInt(i);
+                values.addCovariate(mismatchKeys.getInt(i), indelKey, indelKey, readOffset);
+            }
+        } else {
+            for (int i = 0; i < readLength; i++) {
+                final int readOffset = getStrandedOffset(negativeStrand, i, readLength);
+                values.addCovariate(mismatchKeys.getInt(i), 0, 0, readOffset);
+            }
+
         }
 
         // put the original bases back in

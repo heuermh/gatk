@@ -46,7 +46,7 @@ public final class ReadGroupCovariate implements Covariate {
     }
 
     @Override
-    public void recordValues(final GATKRead read, final SAMFileHeader header, final ReadCovariates values) {
+    public void recordValues(final GATKRead read, final SAMFileHeader header, final ReadCovariates values, final boolean recordIndelValues) {
         final SAMReadGroupRecord rg = ReadUtils.getSAMReadGroupRecord(read, header);
         final String readGroupId = getID(rg);
         final int key = keyForReadGroup(readGroupId);

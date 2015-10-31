@@ -74,7 +74,7 @@ public final class StandardCovariateListUnitTest extends BaseTest {
             private static final long serialVersionUID = 1L;
 
             @Override
-            public void recordValues(GATKRead read, SAMFileHeader header, ReadCovariates values) {
+            public void recordValues(GATKRead read, SAMFileHeader header, ReadCovariates values, boolean recordIndels) {
 
             }
 

@@ -114,7 +114,7 @@ public final class BaseRecalibrationEngine implements Serializable {
         final byte[] baqArray = nErrors == 0 ? flatBAQArray(read) : calculateBAQArray(read, refDS);
 
         if( baqArray != null ) { // some reads just can't be BAQ'ed
-            final ReadCovariates covariates = RecalUtils.computeCovariates(read, readsHeader, this.covariates);
+            final ReadCovariates covariates = RecalUtils.computeCovariates(read, readsHeader, this.covariates, true);
             final boolean[] skip = calculateSkipArray(read, knownSites); // skip known sites of variation as well as low quality and non-regular bases
             final double[] snpErrors = calculateFractionalErrorArray(isSNP, baqArray);
             final double[] insertionErrors = calculateFractionalErrorArray(isInsertion, baqArray);

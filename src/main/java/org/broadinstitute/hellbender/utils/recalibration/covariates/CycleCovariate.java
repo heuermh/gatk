@@ -37,16 +37,24 @@ public final class CycleCovariate implements Covariate {
 
     // Used to pick out the covariate's value from attributes of the read
     @Override
-    public void recordValues(final GATKRead read, final SAMFileHeader header, final ReadCovariates values) {
+    public void recordValues(final GATKRead read, final SAMFileHeader header, final ReadCovariates values, final boolean recordIndelValues) {
         final NGSPlatform ngsPlatform = default_platform == null ? NGSPlatform.fromRead(read, header) : NGSPlatform.fromReadGroupPL(default_platform);
 
         // Discrete cycle platforms
         if (ngsPlatform.getSequencerType() == SequencerFlowClass.DISCRETE) {
             final int readLength = read.getLength();
-            for (int i = 0; i < readLength; i++) {
-                final int substitutionKey = cycleKey(i, read, false, MAXIMUM_CYCLE_VALUE);
-                final int indelKey        = cycleKey(i, read, true, MAXIMUM_CYCLE_VALUE);
-                values.addCovariate(substitutionKey, indelKey, indelKey, i);
+            //Note: duplicate the loop to void checking recordIndelValues on every iteration
+            if (recordIndelValues) {
+                for (int i = 0; i < readLength; i++) {
+                    final int substitutionKey = cycleKey(i, read, false, MAXIMUM_CYCLE_VALUE);
+                    final int indelKey = cycleKey(i, read, true, MAXIMUM_CYCLE_VALUE);
+                    values.addCovariate(substitutionKey, indelKey, indelKey, i);
+                }
+            } else {
+                for (int i = 0; i < readLength; i++) {
+                    final int substitutionKey = cycleKey(i, read, false, MAXIMUM_CYCLE_VALUE);
+                    values.addCovariate(substitutionKey, 0, 0, i);
+                }
             }
         }
 

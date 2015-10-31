@@ -115,7 +115,7 @@ public final class BQSRReadTransformer implements ReadTransformer {
             }
         }
 
-        final ReadCovariates readCovariates = RecalUtils.computeCovariates(read, header, covariates);
+        final ReadCovariates readCovariates = RecalUtils.computeCovariates(read, header, covariates, false);
 
         //clear indel qualities
         read.clearAttribute(ReadUtils.BQSR_BASE_INSERTION_QUALITIES);

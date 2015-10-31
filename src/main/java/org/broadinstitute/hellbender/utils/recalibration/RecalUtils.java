@@ -507,11 +507,12 @@ public final class RecalUtils {
      * @param read                The read for which to compute covariate values.
      * @param header              SAM header for the read
      * @param covariates The list of requested covariates.
+     * @param recordIndelValues   should we compute covariates for indel BQSR?
      * @return a matrix with all the covariates calculated for every base in the read
      */
-    public static ReadCovariates computeCovariates(final GATKRead read, final SAMFileHeader header, final StandardCovariateList covariates) {
+    public static ReadCovariates computeCovariates(final GATKRead read, final SAMFileHeader header, final StandardCovariateList covariates, final boolean recordIndelValues) {
         final ReadCovariates readCovariates = new ReadCovariates(read.getLength(), covariates.size());
-        computeCovariates(read, header, covariates, readCovariates);
+        computeCovariates(read, header, covariates, readCovariates, recordIndelValues);
         return readCovariates;
     }
 
@@ -527,9 +528,10 @@ public final class RecalUtils {
      * @param header              SAM header for the read
      * @param covariates          The list of covariates.
      * @param resultsStorage      The object to store the covariate values
+     * @param recordIndelValues   should we compute covariates for indel BQSR?
      */
-    public static void computeCovariates(final GATKRead read, final SAMFileHeader header, final StandardCovariateList covariates, final ReadCovariates resultsStorage) {
-        covariates.recordAllValuesInStorage(read, header, resultsStorage);
+    public static void computeCovariates(final GATKRead read, final SAMFileHeader header, final StandardCovariateList covariates, final ReadCovariates resultsStorage, final boolean recordIndelValues) {
+        covariates.recordAllValuesInStorage(read, header, resultsStorage, recordIndelValues);
     }
 
     /**

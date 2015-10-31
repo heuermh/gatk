@@ -51,7 +51,7 @@ public final class ReadCovariatesUnitTest extends BaseTest {
                 final byte[] mQuals = read.getBaseQualities();
                 final byte[] iQuals = ReadUtils.getBaseInsertionQualities(read);
                 final byte[] dQuals = ReadUtils.getBaseDeletionQualities(read);
-                ReadCovariates rc = RecalUtils.computeCovariates(read, header, covariates);
+                ReadCovariates rc = RecalUtils.computeCovariates(read, header, covariates, true);
 
                 // check that the length is correct
                 Assert.assertEquals(rc.getMismatchesKeySet().length, length);

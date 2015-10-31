@@ -127,11 +127,11 @@ public final class StandardCovariateList implements Iterable<Covariate>, Seriali
      * For each covariate compute the values for all positions in this read and
      * record the values in the provided storage object.
       */
-    public void recordAllValuesInStorage(final GATKRead read, final SAMFileHeader header, final ReadCovariates resultsStorage) {
+    public void recordAllValuesInStorage(final GATKRead read, final SAMFileHeader header, final ReadCovariates resultsStorage, final boolean recordIndelValues) {
         for (int i = 0, n= allCovariates.size(); i < n; i++) {
             final Covariate cov = allCovariates.get(i);
             resultsStorage.setCovariateIndex(i);
-            cov.recordValues(read, header, resultsStorage);
+            cov.recordValues(read, header, resultsStorage, recordIndelValues);
         }
     }
 
