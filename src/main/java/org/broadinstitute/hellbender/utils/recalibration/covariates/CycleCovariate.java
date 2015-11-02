@@ -8,13 +8,8 @@ import org.broadinstitute.hellbender.utils.recalibration.RecalibrationArgumentCo
 
 /**
  * The Cycle covariate.
- * For Solexa the cycle is simply the position in the read (counting backwards if it is a negative strand read)
- * For 454 the cycle is the TACG flow cycle, that is, each flow grabs all the TACG's in order in a single cycle
- * For example, for the read: AAACCCCGAAATTTTTACTG
- * the cycle would be 11111111222333333344
- * For SOLiD the cycle is a more complicated mixture of ligation cycle and primer round
+ * For ILLUMINA the cycle is simply the position in the read (counting backwards if it is a negative strand read)
  */
-
 public final class CycleCovariate implements Covariate {
     private static final long serialVersionUID = 1L;
 

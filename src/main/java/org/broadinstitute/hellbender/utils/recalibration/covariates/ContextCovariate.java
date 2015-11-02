@@ -59,9 +59,9 @@ public final class ContextCovariate implements Covariate {
     @Override
     public void recordValues(final GATKRead read, final SAMFileHeader header, final ReadCovariates values, final boolean recordIndelValues) {
 
-        // store the original bases and then write Ns over low quality ones
-//        final byte[] originalBases = read.getBases();//note: this makes a defensive copy
         final int originalReadLength = read.getLength();
+
+        // store the original bases and then write Ns over low quality ones
         final byte[] strandedClippedBases = getStrandedClippedBytes(read, lowQualTail);  //Note: this makes a copy of the read
 
         //Note: we're using a non-standard library here because boxing came up on profiling as taking 20% of time in applyBQSR.
@@ -96,11 +96,7 @@ public final class ContextCovariate implements Covariate {
                 final int readOffset = getStrandedOffset(negativeStrand, i, readLengthAfterClipping);
                 values.addCovariate(mismatchKeys.getInt(i), 0, 0, readOffset);
             }
-
         }
-
-        // put the original bases back in
-//        read.setBases(originalBases);
     }
 
     /**

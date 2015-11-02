@@ -32,10 +32,16 @@ public final class BQSRReadTransformer implements ReadTransformer {
     private final boolean emitOriginalQuals;
 
     //These fields are created to avoid redoing these calculations for every read
-    private final int totalCovariateCount;  //number of covariates
-    private final int specialCovariateCount;     //number of special covariates
-    private final int nonSpecialCovariateCount;  //number of non-special covariates
+    private final int totalCovariateCount;
+    private final int specialCovariateCount;
 
+    private static final int BASE_SUBSTITUTION_INDEX = EventType.BASE_SUBSTITUTION.ordinal();
+
+    //Note: varargs allocates a new array every time. We'll pre-allocate one array and reuse it to avoid object allocation for every base.
+    private final RecalDatum[] empiricalQualCovs;
+    private final int[] readGroupArgs;
+    private final int[] qualTableArgs;
+    private final int[] empiricalTableArgs;
 
     /**
      * Constructor using a GATK Report file
@@ -74,7 +80,17 @@ public final class BQSRReadTransformer implements ReadTransformer {
 
         this.totalCovariateCount = covariates.size();
         this.specialCovariateCount = covariates.numberOfSpecialCovariates();
-        this.nonSpecialCovariateCount = totalCovariateCount - covariates.numberOfSpecialCovariates();
+
+        //Note: We pre-create the varargs arrays that will be used in the calls. Otherwise we're spending a lot of time allocating those int[] objects
+        empiricalQualCovs = new RecalDatum[totalCovariateCount - specialCovariateCount];
+        readGroupArgs = new int[2];
+        readGroupArgs[readGroupArgs.length - 1] = BASE_SUBSTITUTION_INDEX;
+
+        qualTableArgs = new int[3];
+        qualTableArgs[qualTableArgs.length - 1] = BASE_SUBSTITUTION_INDEX;
+
+        empiricalTableArgs = new int[4];
+        empiricalTableArgs[empiricalTableArgs.length - 1] = BASE_SUBSTITUTION_INDEX;
     }
 
     /**
@@ -112,7 +128,7 @@ public final class BQSRReadTransformer implements ReadTransformer {
         if (emitOriginalQuals && ! read.hasAttribute(SAMTag.OQ.name())) { // Save the old qualities if the tag isn't already taken in the read
             try {
                 read.setAttribute(SAMTag.OQ.name(), SAMUtils.phredToFastq(read.getBaseQualities()));
-            } catch (IllegalArgumentException e) {
+            } catch (final IllegalArgumentException e) {
                 throw new UserException.MalformedRead(read, "illegal base quality encountered; " + e.getMessage());
             }
         }
@@ -128,41 +144,29 @@ public final class BQSRReadTransformer implements ReadTransformer {
 
         // the rg key is constant over the whole read, the global deltaQ is too
         final int rgKey = fullReadKeySet[0][0];
-        final int baseSubstitutionIndex = EventType.BASE_SUBSTITUTION.ordinal();
-        final RecalDatum empiricalQualRG = recalibrationTables.getReadGroupTable().get(rgKey, baseSubstitutionIndex);
+
+        //Note: reuse the argument array to reduce the vararg allocation time
+        readGroupArgs[0] = rgKey;
+        //Note: index 1 is always the same value BASE_SUBSTITUTION_INDEX, pre-set in the constructor
+
+        final RecalDatum empiricalQualRG = recalibrationTables.getReadGroupTable().get(readGroupArgs);
 
         if (empiricalQualRG == null) {
             return read;
         }
-        final byte[] quals = ReadUtils.getBaseQualities(read, EventType.BASE_SUBSTITUTION);
-        final int readLength = read.getLength();
+        final byte[] quals = read.getBaseQualities();
 
+        final int readLength = quals.length;
         final double epsilon = (globalQScorePrior > 0.0 ? globalQScorePrior : empiricalQualRG.getEstimatedQReported());
-        applyLoop(fullReadKeySet, baseSubstitutionIndex, empiricalQualRG, quals, readLength, epsilon);
 
-
-        // finally update the base qualities in the read
-        read.setBaseQualities(quals);
-        return read;
-    }
-
-    //Reuse this list to avoid object allocation for every base
-    //Note: we could move it out of this method to reuse across reads too
-    //We'll keep reusing the same array for all reads and bases to save on allocation
-    private final RecalDatum[] empiricalQualCovs = new RecalDatum[2]; //nonSpecialCovariateCount
-    private final int[] qualTableArgs = new int[3];
-    private final int[] empiricalTableArgs = new int[4];
-
-    private void applyLoop(final int[][] fullReadKeySet, final int baseSubstitutionIndex, final RecalDatum empiricalQualRG, final byte[] quals, final int readLength, final double epsilon) {
         final NestedIntegerArray<RecalDatum> qualityScoreTable = recalibrationTables.getQualityScoreTable();
         final List<Byte> quantizedQuals = quantizationInfo.getQuantizedQuals();
 
         //Note: this loop is under very heavy use in applyBQSR. Keep it slim.
         for (int offset = 0; offset < readLength; offset++) { // recalibrate all bases in the read
-            final byte origQual = quals[offset];
 
             // only recalibrate usable qualities (the original quality will come from the instrument -- reported quality)
-            if (origQual < preserveQLessThan) {
+            if (quals[offset] < preserveQLessThan) {
                 continue;
             }
             Arrays.fill(empiricalQualCovs, null);  //clear the array
@@ -170,14 +174,14 @@ public final class BQSRReadTransformer implements ReadTransformer {
 
             qualTableArgs[0]= keySet[0];
             qualTableArgs[1]= keySet[1];
-            qualTableArgs[2]= baseSubstitutionIndex;
+            //Note: index 2 is always set to the same value BASE_SUBSTITUTION_INDEX, pre-set in the constructor;
 
             final RecalDatum empiricalQualQS = qualityScoreTable.get(qualTableArgs);
 
             empiricalTableArgs[0] = keySet[0];
             empiricalTableArgs[1] = keySet[1];
-            //index 2 will be filled for each covariate
-            empiricalTableArgs[3] = baseSubstitutionIndex;
+            //Note: index 2 will be filled for each covariate
+            //Note: index 3 is always set to the same value BASE_SUBSTITUTION_INDEX, pre-set in the constructor;
 
             for (int i = specialCovariateCount; i < totalCovariateCount; i++) {
                 if (keySet[i] >= 0) {
@@ -187,9 +191,10 @@ public final class BQSRReadTransformer implements ReadTransformer {
             }
             final double recalibratedQualDouble = hierarchicalBayesianQualityEstimate(epsilon, empiricalQualRG, empiricalQualQS, empiricalQualCovs);
 
-            // return the quantized version of the recalibrated quality
             quals[offset] = quantizedQuals.get(getRecalibratedQual(recalibratedQualDouble));
         }
+        read.setBaseQualities(quals);
+        return read;
     }
 
     // recalibrated quality is bound between 1 and MAX_QUAL
@@ -219,6 +224,6 @@ public final class BQSRReadTransformer implements ReadTransformer {
             }
         }
 
-        return epsilon + globalDeltaQ + deltaQReported + deltaQCovariates;
+        return conditionalPrior2 + deltaQCovariates;
     }
 }
