@@ -23,7 +23,8 @@ public final class CycleCovariate implements Covariate {
 
     private final int MAXIMUM_CYCLE_VALUE;
     public static final int CUSHION_FOR_INDELS = 4;
-    private final String default_platform;   //can be null
+    private final String default_platform;             //can be null
+    private final NGSPlatform platformFromReadGroupPL; //can be null
 
     public CycleCovariate(final RecalibrationArgumentCollection RAC){
         this.MAXIMUM_CYCLE_VALUE = RAC.MAXIMUM_CYCLE_VALUE;
@@ -33,12 +34,13 @@ public final class CycleCovariate implements Covariate {
         }
 
         default_platform = RAC.DEFAULT_PLATFORM;
+        this.platformFromReadGroupPL = default_platform == null ? null : NGSPlatform.fromReadGroupPL(default_platform);
     }
 
     // Used to pick out the covariate's value from attributes of the read
     @Override
     public void recordValues(final GATKRead read, final SAMFileHeader header, final ReadCovariates values, final boolean recordIndelValues) {
-        final NGSPlatform ngsPlatform = default_platform == null ? NGSPlatform.fromRead(read, header) : NGSPlatform.fromReadGroupPL(default_platform);
+        final NGSPlatform ngsPlatform = default_platform == null ? NGSPlatform.fromRead(read, header) : platformFromReadGroupPL;
 
         // Discrete cycle platforms
         if (ngsPlatform.getSequencerType() == SequencerFlowClass.DISCRETE) {
