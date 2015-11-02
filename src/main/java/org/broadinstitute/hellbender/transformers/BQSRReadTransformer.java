@@ -136,12 +136,22 @@ public final class BQSRReadTransformer implements ReadTransformer {
         final int readLength = read.getLength();
 
         final double epsilon = (globalQScorePrior > 0.0 ? globalQScorePrior : empiricalQualRG.getEstimatedQReported());
+        applyLoop(fullReadKeySet, baseSubstitutionIndex, empiricalQualRG, quals, readLength, epsilon);
 
-        //Reuse this list to avoid object allocation for every base
-        //Note: we could move it out of this method to reuse across reads too
-        //We'll keep reusing the same array for all bases
-        final RecalDatum[] empiricalQualCovs = new RecalDatum[nonSpecialCovariateCount];
 
+        // finally update the base qualities in the read
+        read.setBaseQualities(quals);
+        return read;
+    }
+
+    //Reuse this list to avoid object allocation for every base
+    //Note: we could move it out of this method to reuse across reads too
+    //We'll keep reusing the same array for all reads and bases to save on allocation
+    private final RecalDatum[] empiricalQualCovs = new RecalDatum[2]; //nonSpecialCovariateCount
+    private final int[] qualTableArgs = new int[3];
+    private final int[] empiricalTableArgs = new int[4];
+
+    private void applyLoop(int[][] fullReadKeySet, int baseSubstitutionIndex, RecalDatum empiricalQualRG, byte[] quals, int readLength, double epsilon) {
         //Note: this loop is under very heavy use in applyBQSR. Keep it slim.
         for (int offset = 0; offset < readLength; offset++) { // recalibrate all bases in the read
             final byte origQual = quals[offset];
@@ -152,13 +162,22 @@ public final class BQSRReadTransformer implements ReadTransformer {
             }
             Arrays.fill(empiricalQualCovs, null);  //clear the array
             final int[] keySet = fullReadKeySet[offset];
-            final RecalDatum empiricalQualQS = recalibrationTables.getQualityScoreTable().get(keySet[0], keySet[1], baseSubstitutionIndex);
+
+            qualTableArgs[0]= keySet[0];
+            qualTableArgs[1]= keySet[1];
+            qualTableArgs[2]= baseSubstitutionIndex;
+
+            final RecalDatum empiricalQualQS = recalibrationTables.getQualityScoreTable().get(qualTableArgs);
+
             for (int i = specialCovariateCount; i < totalCovariateCount; i++) {
                 if (keySet[i] >= 0) {
-                    empiricalQualCovs[i - specialCovariateCount] = recalibrationTables.getTable(i).get(keySet[0], keySet[1], keySet[i], baseSubstitutionIndex);
+                    empiricalTableArgs[0] = keySet[0];
+                    empiricalTableArgs[1] = keySet[1];
+                    empiricalTableArgs[2] = keySet[i];
+                    empiricalTableArgs[3] = baseSubstitutionIndex;
+                    empiricalQualCovs[i - specialCovariateCount] = recalibrationTables.getTable(i).get(empiricalTableArgs);
                 }
             }
-
             final double recalibratedQualDouble = hierarchicalBayesianQualityEstimate(epsilon, empiricalQualRG, empiricalQualQS, empiricalQualCovs);
 
             // recalibrated quality is bound between 1 and MAX_QUAL
@@ -169,10 +188,6 @@ public final class BQSRReadTransformer implements ReadTransformer {
 
             quals[offset] = recalibratedQualityScore;
         }
-
-        // finally update the base qualities in the read
-        read.setBaseQualities(quals);
-        return read;
     }
 
     public static double hierarchicalBayesianQualityEstimate( final double epsilon,
