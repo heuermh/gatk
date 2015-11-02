@@ -2,12 +2,9 @@ package org.broadinstitute.hellbender.utils.recalibration.covariates;
 
 import htsjdk.samtools.SAMFileHeader;
 import org.broadinstitute.hellbender.exceptions.UserException;
+import org.broadinstitute.hellbender.utils.read.GATKRead;
 import org.broadinstitute.hellbender.utils.recalibration.ReadCovariates;
 import org.broadinstitute.hellbender.utils.recalibration.RecalibrationArgumentCollection;
-import org.broadinstitute.hellbender.utils.NGSPlatform;
-import org.broadinstitute.hellbender.utils.SequencerFlowClass;
-import org.broadinstitute.hellbender.utils.read.GATKRead;
-import org.broadinstitute.hellbender.utils.read.ReadUtils;
 
 /**
  * The Cycle covariate.
@@ -23,54 +20,27 @@ public final class CycleCovariate implements Covariate {
 
     private final int MAXIMUM_CYCLE_VALUE;
     public static final int CUSHION_FOR_INDELS = 4;
-    private final String default_platform;             //can be null
-    private final NGSPlatform platformFromReadGroupPL; //can be null
 
     public CycleCovariate(final RecalibrationArgumentCollection RAC){
         this.MAXIMUM_CYCLE_VALUE = RAC.MAXIMUM_CYCLE_VALUE;
-
-        if (RAC.DEFAULT_PLATFORM != null && !NGSPlatform.isKnown(RAC.DEFAULT_PLATFORM)) {
-            throw new UserException.CommandLineException("The requested default platform (" + RAC.DEFAULT_PLATFORM + ") is not a recognized platform.");
-        }
-
-        default_platform = RAC.DEFAULT_PLATFORM;
-        this.platformFromReadGroupPL = default_platform == null ? null : NGSPlatform.fromReadGroupPL(default_platform);
     }
 
     // Used to pick out the covariate's value from attributes of the read
     @Override
     public void recordValues(final GATKRead read, final SAMFileHeader header, final ReadCovariates values, final boolean recordIndelValues) {
-        final NGSPlatform ngsPlatform = default_platform == null ? NGSPlatform.fromRead(read, header) : platformFromReadGroupPL;
-
-        // Discrete cycle platforms
-        if (ngsPlatform.getSequencerType() == SequencerFlowClass.DISCRETE) {
-            final int readLength = read.getLength();
-            //Note: duplicate the loop to void checking recordIndelValues on every iteration
-            if (recordIndelValues) {
-                for (int i = 0; i < readLength; i++) {
-                    final int substitutionKey = cycleKey(i, read, false, MAXIMUM_CYCLE_VALUE);
-                    final int indelKey = cycleKey(i, read, true, MAXIMUM_CYCLE_VALUE);
-                    values.addCovariate(substitutionKey, indelKey, indelKey, i);
-                }
-            } else {
-                for (int i = 0; i < readLength; i++) {
-                    final int substitutionKey = cycleKey(i, read, false, MAXIMUM_CYCLE_VALUE);
-                    values.addCovariate(substitutionKey, 0, 0, i);
-                }
+        final int readLength = read.getLength();
+        //Note: duplicate the loop to void checking recordIndelValues on every iteration
+        if (recordIndelValues) {
+            for (int i = 0; i < readLength; i++) {
+                final int substitutionKey = cycleKey(i, read, false, MAXIMUM_CYCLE_VALUE);
+                final int indelKey = cycleKey(i, read, true, MAXIMUM_CYCLE_VALUE);
+                values.addCovariate(substitutionKey, indelKey, indelKey, i);
             }
-        }
-
-        // Flow cycle platforms
-        else if (ngsPlatform.getSequencerType() == SequencerFlowClass.FLOW) {
-            throw new UserException("The platform (" + ReadUtils.getPlatform(read, header)
-                    + ") associated with read group " + ReadUtils.getSAMReadGroupRecord(read, header)
-                    + " is not a supported platform.");
-        }
-        // Unknown platforms
-        else {
-            throw new UserException("The platform (" + ReadUtils.getPlatform(read, header)
-                    + ") associated with read group " + ReadUtils.getSAMReadGroupRecord(read, header)
-                    + " is not a recognized platform. Allowable options are " + NGSPlatform.knownPlatformsString());
+        } else {
+            for (int i = 0; i < readLength; i++) {
+                final int substitutionKey = cycleKey(i, read, false, MAXIMUM_CYCLE_VALUE);
+                values.addCovariate(substitutionKey, 0, 0, i);
+            }
         }
     }
 

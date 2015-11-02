@@ -5,6 +5,7 @@ import htsjdk.samtools.SAMTag;
 import htsjdk.samtools.SAMUtils;
 import org.broadinstitute.hellbender.exceptions.UserException;
 import org.broadinstitute.hellbender.tools.ApplyBQSRArgumentCollection;
+import org.broadinstitute.hellbender.utils.collections.NestedIntegerArray;
 import org.broadinstitute.hellbender.utils.read.GATKRead;
 import org.broadinstitute.hellbender.utils.read.ReadUtils;
 import org.broadinstitute.hellbender.utils.recalibration.*;
@@ -12,6 +13,7 @@ import org.broadinstitute.hellbender.utils.recalibration.covariates.StandardCova
 
 import java.io.File;
 import java.util.Arrays;
+import java.util.List;
 
 import static org.broadinstitute.hellbender.utils.MathUtils.fastRound;
 import static org.broadinstitute.hellbender.utils.QualityUtils.boundQual;
@@ -151,7 +153,10 @@ public final class BQSRReadTransformer implements ReadTransformer {
     private final int[] qualTableArgs = new int[3];
     private final int[] empiricalTableArgs = new int[4];
 
-    private void applyLoop(int[][] fullReadKeySet, int baseSubstitutionIndex, RecalDatum empiricalQualRG, byte[] quals, int readLength, double epsilon) {
+    private void applyLoop(final int[][] fullReadKeySet, final int baseSubstitutionIndex, final RecalDatum empiricalQualRG, final byte[] quals, final int readLength, final double epsilon) {
+        final NestedIntegerArray<RecalDatum> qualityScoreTable = recalibrationTables.getQualityScoreTable();
+        final List<Byte> quantizedQuals = quantizationInfo.getQuantizedQuals();
+
         //Note: this loop is under very heavy use in applyBQSR. Keep it slim.
         for (int offset = 0; offset < readLength; offset++) { // recalibrate all bases in the read
             final byte origQual = quals[offset];
@@ -167,27 +172,29 @@ public final class BQSRReadTransformer implements ReadTransformer {
             qualTableArgs[1]= keySet[1];
             qualTableArgs[2]= baseSubstitutionIndex;
 
-            final RecalDatum empiricalQualQS = recalibrationTables.getQualityScoreTable().get(qualTableArgs);
+            final RecalDatum empiricalQualQS = qualityScoreTable.get(qualTableArgs);
+
+            empiricalTableArgs[0] = keySet[0];
+            empiricalTableArgs[1] = keySet[1];
+            //index 2 will be filled for each covariate
+            empiricalTableArgs[3] = baseSubstitutionIndex;
 
             for (int i = specialCovariateCount; i < totalCovariateCount; i++) {
                 if (keySet[i] >= 0) {
-                    empiricalTableArgs[0] = keySet[0];
-                    empiricalTableArgs[1] = keySet[1];
                     empiricalTableArgs[2] = keySet[i];
-                    empiricalTableArgs[3] = baseSubstitutionIndex;
                     empiricalQualCovs[i - specialCovariateCount] = recalibrationTables.getTable(i).get(empiricalTableArgs);
                 }
             }
             final double recalibratedQualDouble = hierarchicalBayesianQualityEstimate(epsilon, empiricalQualRG, empiricalQualQS, empiricalQualCovs);
 
-            // recalibrated quality is bound between 1 and MAX_QUAL
-            final byte recalibratedQual = boundQual(fastRound(recalibratedQualDouble), MAX_RECALIBRATED_Q_SCORE);
-
             // return the quantized version of the recalibrated quality
-            final byte recalibratedQualityScore = quantizationInfo.getQuantizedQuals().get(recalibratedQual);
-
-            quals[offset] = recalibratedQualityScore;
+            quals[offset] = quantizedQuals.get(getRecalibratedQual(recalibratedQualDouble));
         }
+    }
+
+    // recalibrated quality is bound between 1 and MAX_QUAL
+    private byte getRecalibratedQual(double recalibratedQualDouble) {
+        return boundQual(fastRound(recalibratedQualDouble), MAX_RECALIBRATED_Q_SCORE);
     }
 
     public static double hierarchicalBayesianQualityEstimate( final double epsilon,
