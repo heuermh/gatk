@@ -6,9 +6,13 @@ import org.apache.commons.math3.random.RandomDataGenerator;
 import org.apache.commons.math3.random.Well19937c;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.broadinstitute.hellbender.exceptions.GATKException;
 import org.broadinstitute.hellbender.exceptions.UserException;
 
 import java.io.File;
+import java.io.FileInputStream;
+import java.io.IOException;
+import java.io.InputStream;
 import java.lang.reflect.Array;
 import java.math.BigInteger;
 import java.security.MessageDigest;
@@ -437,6 +441,49 @@ public final class Utils {
         }
         catch ( final NoSuchAlgorithmException e ) {
             throw new IllegalStateException("MD5 digest algorithm not present");
+        }
+    }
+
+    /**
+     * Calculates the MD5 for the specified file and returns it as a String
+     *
+     * @param file file whose MD5 to calculate
+     * @return file's MD5 in String form
+     * @throws RuntimeException if the file could not be read
+     */
+    public static String calculateFileMD5( final File file ) throws IOException{
+        return Utils.calcMD5(getBytesFromFile(file));
+    }
+
+    /**
+     * Returns the byte[] of the entire contents of file, for md5 calculations
+     */
+    private static byte[] getBytesFromFile(final File file) throws IOException {
+        try( final InputStream is = new FileInputStream(file)) {
+
+            // Get the size of the file
+            final long length = file.length();
+
+            if (length > Integer.MAX_VALUE) {
+                throw new IOException("File too large" + file.getName());
+            }
+
+            // Create the byte array to hold the data
+            final byte[] bytes = new byte[(int) length];
+
+            // Read in the bytes
+            int offset = 0;
+            int numRead = 0;
+            while (offset < bytes.length
+                    && (numRead = is.read(bytes, offset, bytes.length - offset)) >= 0) {
+                offset += numRead;
+            }
+
+            // Ensure all the bytes have been read in
+            if (offset < bytes.length) {
+                throw new IOException("Could not completely read file " + file.getName());
+            }
+            return bytes;
         }
     }
 
