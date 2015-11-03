@@ -135,4 +135,13 @@ public final class SamAssertionUtils {
         assertSamValid(sam, ValidationStringency.LENIENT, null);
     }
 
+    public static boolean samsEqualStringent(File sam1, File sam2) {
+        final SamReader reader1 = getReader(sam1, ValidationStringency.LENIENT, null);
+        final SamReader reader2 = getReader(sam2, ValidationStringency.LENIENT, null);
+        final SamComparison comparison = new SamComparison(reader1, reader2);
+        final boolean equal = comparison.areEqual();
+
+        //TODO write this properly
+        return equal;
+    }
 }
