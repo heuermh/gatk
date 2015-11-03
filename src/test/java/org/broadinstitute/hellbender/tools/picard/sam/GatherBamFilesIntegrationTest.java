@@ -2,14 +2,16 @@ package org.broadinstitute.hellbender.tools.picard.sam;
 
 import htsjdk.samtools.BamFileIoUtils;
 import htsjdk.samtools.ValidationStringency;
-import junit.framework.Assert;
 import org.broadinstitute.hellbender.CommandLineProgramTest;
-import org.broadinstitute.hellbender.utils.test.SamAssertionUtils;
 import org.broadinstitute.hellbender.utils.test.BaseTest;
+import org.broadinstitute.hellbender.utils.test.SamAssertionUtils;
+import org.testng.Assert;
 import org.testng.annotations.Test;
 
 import java.io.File;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
 
 public final class GatherBamFilesIntegrationTest extends CommandLineProgramTest {
     private static final File TEST_DATA_DIR = new File(getTestDataDir(), "picard/sam/GatherBamFiles");
