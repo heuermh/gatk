@@ -23,9 +23,11 @@ import org.testng.annotations.Test;
 import java.util.HashMap;
 import java.util.Map;
 
+import static org.broadinstitute.hellbender.engine.datasources.ReferenceAPISource.*;
+
 public class ReferenceAPISourceUnitTest extends BaseTest {
 
-    private ReferenceBases queryReferenceAPI( final String referenceName, final SimpleInterval interval, int pageSize ) {
+    private ReferenceBases queryReferenceAPI(final String referenceName, final SimpleInterval interval, int pageSize ) {
         final Pipeline p = setupPipeline();
 
         ReferenceAPISource refAPISource = makeReferenceAPISource(referenceName, p);
@@ -92,17 +94,28 @@ public class ReferenceAPISourceUnitTest extends BaseTest {
         checkSequenceDictionary(seq, expected);
     }
 
-    @Test(groups = "cloud")
-    public void testCreateByAssemblyID() throws Exception {
+    @DataProvider(name = "assemblyIDData")
+    public Object[][] assemblyIDData() {
+        return new String[][] {
+                { HS37D5_ASSEMBLY_ID, HS37D5_REF_ID },
+                { GRCH37_LITE_ASSEMBLY_ID, GRCH37_LITE_REF_ID},
+                { GRCH38_ASSEMBLY_ID, GRCH38_REF_ID},
+//                { GRCH37_ASSEMBLY_ID, GRCH37_REF_ID},       //Disabled: this assembly set seems special in google - you get both GRCH37_REF_ID and GRCH37_LITE_REF_ID
+                { HG19_ASSEMBLY_ID, HG19_REF_ID},
+        };
+    }
+
+    @Test(groups = "cloud", dataProvider = "assemblyIDData")
+    public void testCreateByAssemblyID(final String assemblyID, final String refID) throws Exception {
         final Pipeline p = setupPipeline();
-        final ReferenceAPISource apiSourceByAssemblyName = ReferenceAPISource.fromReferenceSetAssemblyID(p.getOptions(), ReferenceAPISource.HS37D5_ASSEMBLY_ID);
-        final ReferenceAPISource apiSourceByID = makeReferenceAPISource(ReferenceAPISource.HS37D5_REF_ID, p);
+        final ReferenceAPISource apiSourceByAssemblyName = ReferenceAPISource.fromReferenceSetAssemblyID(p.getOptions(), assemblyID);
+        final ReferenceAPISource apiSourceByID = makeReferenceAPISource(refID, p);
         Assert.assertEquals(apiSourceByAssemblyName.getReferenceMap(), apiSourceByID.getReferenceMap());
     }
 
     @Test(groups = "cloud")
     public void testDummy() {
-        String referenceName = "EOSt9JOVhp3jkwE";
+        String referenceName = HS37D5_REF_ID;
         final String expected = "AAACAGGTTA";
         // -1 because we're using closed intervals
         SimpleInterval interval = new SimpleInterval("1", 50001, 50001 + expected.length() - 1);
@@ -123,7 +136,7 @@ public class ReferenceAPISourceUnitTest extends BaseTest {
 
     @Test(groups = "cloud")
     public void testReferenceSourceQuery() {
-        final ReferenceBases bases = queryReferenceAPI("EOSt9JOVhp3jkwE", new SimpleInterval("1", 50000, 50009));
+        final ReferenceBases bases = queryReferenceAPI(HS37D5_REF_ID, new SimpleInterval("1", 50000, 50009));
 
         Assert.assertNotNull(bases);
         Assert.assertNotNull(bases.getBases());
@@ -134,8 +147,8 @@ public class ReferenceAPISourceUnitTest extends BaseTest {
     @Test(groups = "cloud")
     public void testReferenceSourceMultiPageQuery() {
         final int mio = 1_000_000;
-        final ReferenceBases bases1 = queryReferenceAPI(ReferenceAPISource.HS37D5_REF_ID, new SimpleInterval("1", 50000, 50000 + mio + 50));
-        final ReferenceBases bases2 = queryReferenceAPI(ReferenceAPISource.HS37D5_REF_ID, new SimpleInterval("1", 50025, 50025 + mio + 50));
+        final ReferenceBases bases1 = queryReferenceAPI(HS37D5_REF_ID, new SimpleInterval("1", 50000, 50000 + mio + 50));
+        final ReferenceBases bases2 = queryReferenceAPI(HS37D5_REF_ID, new SimpleInterval("1", 50025, 50025 + mio + 50));
 
         Assert.assertNotNull(bases1);
         Assert.assertNotNull(bases1.getBases());
@@ -157,9 +170,9 @@ public class ReferenceAPISourceUnitTest extends BaseTest {
     public void testReferenceSourceMultiSmallPagesQuery() {
         int pageSize = 300;
         // not a multiple of pageSize (testing the fetching of a partial page)
-        final ReferenceBases bases1 = queryReferenceAPI(ReferenceAPISource.HS37D5_REF_ID, new SimpleInterval("1", 50000, 51000), pageSize);
+        final ReferenceBases bases1 = queryReferenceAPI(HS37D5_REF_ID, new SimpleInterval("1", 50000, 51000), pageSize);
         // multiple of pageSize (testing ending on an exact page boundary)
-        final ReferenceBases bases2 = queryReferenceAPI(ReferenceAPISource.HS37D5_REF_ID, new SimpleInterval("1", 50025, 50924), pageSize);
+        final ReferenceBases bases2 = queryReferenceAPI(HS37D5_REF_ID, new SimpleInterval("1", 50025, 50924), pageSize);
 
         Assert.assertNotNull(bases1);
         Assert.assertNotNull(bases1.getBases());
@@ -180,8 +193,8 @@ public class ReferenceAPISourceUnitTest extends BaseTest {
     public void testReferenceSourceVaryingPageSizeQuery() {
 
         SimpleInterval interval = new SimpleInterval("1", 50000, 50050);
-        final ReferenceBases bases1 = queryReferenceAPI(ReferenceAPISource.HS37D5_REF_ID, interval);
-        final ReferenceBases bases2 = queryReferenceAPI(ReferenceAPISource.HS37D5_REF_ID, interval, 10);
+        final ReferenceBases bases1 = queryReferenceAPI(HS37D5_REF_ID, interval);
+        final ReferenceBases bases2 = queryReferenceAPI(HS37D5_REF_ID, interval, 10);
 
         Assert.assertNotNull(bases1);
         Assert.assertNotNull(bases1.getBases());
@@ -192,17 +205,17 @@ public class ReferenceAPISourceUnitTest extends BaseTest {
 
     @Test(groups = "cloud", expectedExceptions = UserException.class)
     public void testReferenceSourceQueryWithInvalidContig() {
-        final ReferenceBases bases = queryReferenceAPI("EOSt9JOVhp3jkwE", new SimpleInterval("FOOCONTIG", 1, 2));
+        final ReferenceBases bases = queryReferenceAPI(HS37D5_REF_ID, new SimpleInterval("FOOCONTIG", 1, 2));
     }
 
     @Test(groups = "cloud", expectedExceptions = UserException.class)
     public void testReferenceSourceQueryWithInvalidPosition() {
-        final ReferenceBases bases = queryReferenceAPI("EOSt9JOVhp3jkwE", new SimpleInterval("1", 1000000000, 2000000000));
+        final ReferenceBases bases = queryReferenceAPI(HS37D5_REF_ID, new SimpleInterval("1", 1000000000, 2000000000));
     }
 
     @Test(groups = "cloud", expectedExceptions = IllegalArgumentException.class)
     public void testReferenceSourceQueryWithNullInterval() {
-        final ReferenceBases bases = queryReferenceAPI("EOSt9JOVhp3jkwE", null);
+        final ReferenceBases bases = queryReferenceAPI(HS37D5_REF_ID, null);
     }
 
     private Map<String, Reference> createDummyReferenceMap(String[] contig) {

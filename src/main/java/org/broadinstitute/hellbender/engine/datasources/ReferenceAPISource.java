@@ -36,10 +36,17 @@ public class ReferenceAPISource implements ReferenceSource, Serializable {
 
     // from https://cloud.google.com/genomics/data/references
     public static final String GRCH37_REF_ID = "EOSsjdnTicvzwAE";
+    public static final String GRCH37_ASSEMBLY_ID ="GRCh37" ;
+
     // "lite" instead of the correct spelling because that's what its name is.
     public static final String GRCH37_LITE_REF_ID = "EJjur6DxjIa6KQ";
+    public static final String GRCH37_LITE_ASSEMBLY_ID = "GRCh37lite";
+
     public static final String GRCH38_REF_ID = "EMud_c37lKPXTQ";
+    public static final String GRCH38_ASSEMBLY_ID = "GRCh38";
+
     public static final String HG19_REF_ID = "EMWV_ZfLxrDY-wE";
+    public static final String HG19_ASSEMBLY_ID = "hg19";
 
     public static final String HS37D5_REF_ID = "EOSt9JOVhp3jkwE";
     public static final String HS37D5_ASSEMBLY_ID = "hs37d5";
@@ -48,7 +55,7 @@ public class ReferenceAPISource implements ReferenceSource, Serializable {
 
     private static final long serialVersionUID = 1L;
     private static final int defaultPageSize = 1_000_000; // The number of results per request
-    private final static Logger logger = LogManager.getLogger(ReferenceAPISource.class);
+    private static final Logger logger = LogManager.getLogger(ReferenceAPISource.class);
 
     // With our current design, there are three steps required (1) Create a map from reference name to Id,
     // (2) instantiate RefAPISource, and (3) call getReferenceBases, which then calls the Google Genomics API.
