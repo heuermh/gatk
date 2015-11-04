@@ -29,6 +29,17 @@ public final class SamAssertionUtils {
     }
 
     /**
+     *  causes an exception if the given sam files aren't equal
+     *  @param reference is allowed to be null
+     *  Lenient comparisons only look at the header and alignment information.
+     *  NOTE: Lenient comparisons are a temporary workaround and will be removed in the future
+     */
+    public static void assertSamsEqualLenient(final File sam1, final File sam2, final ValidationStringency validationStringency, final File reference) throws IOException {
+        final String equalStringent = samsEqualLenient(sam1, sam2, validationStringency, reference);
+        Assert.assertNull(equalStringent, "SAM file " + sam1.getPath() + " differs from expected output:" + sam2.getPath() + " " + equalStringent);
+    }
+
+    /**
      * causes an exception if the given sam files aren't equal
      */
     public static void assertSamsEqual(final File sam1, final File sam2, final ValidationStringency validationStringency) throws IOException {
@@ -37,8 +48,6 @@ public final class SamAssertionUtils {
 
     /**
      * causes an exception if the given sam files aren't equal
-     * @param reference is allowed to be null
-     * the default ValidationStringency value for this method is DEFAULT_STRINGENCY
      */
     public static void assertSamsEqual(final File sam1, final File sam2, final File reference) throws IOException {
         assertSamsEqual(sam1, sam2, ValidationStringency.DEFAULT_STRINGENCY, reference);
@@ -50,6 +59,15 @@ public final class SamAssertionUtils {
      */
     public static void assertSamsEqual(final File sam1, final File sam2) throws IOException {
         assertSamsEqual(sam1, sam2, ValidationStringency.DEFAULT_STRINGENCY, null);
+    }
+
+    /**
+     * causes an exception if the given sam files aren't equal
+     * Lenient comparisons only look at the header and alignment information.
+     *  NOTE: Lenient comparisons are a temporary workaround and will be removed in the future
+     */
+    public static void assertSamsEqualLenient(final File sam1, final File sam2, final File reference) throws IOException {
+        assertSamsEqualLenient(sam1, sam2, ValidationStringency.DEFAULT_STRINGENCY, reference);
     }
 
     /**
@@ -89,6 +107,18 @@ public final class SamAssertionUtils {
      */
     public static void assertSamValid(final File sam) throws IOException {
         assertSamValid(sam, ValidationStringency.LENIENT, null);
+    }
+
+    /**
+     * Compares SAM/BAM files in a stringent way but not by byte identity (allow reorder of attributes)
+     */
+    private static String samsEqualLenient(File sam1, File sam2, ValidationStringency validation, File reference) throws IOException {
+        try(final SamReader reader1 = getReader(sam1, validation, reference);
+            final SamReader reader2 = getReader(sam2, validation, reference)) {
+
+            final SamComparison comparison = new SamComparison(reader1, reader2);
+            return comparison.areEqual() ? null : "SamComparison fails";
+        }
     }
 
     /**
@@ -146,6 +176,9 @@ public final class SamAssertionUtils {
      */
     private static String readsEqualAllowAddingAttributes(final SAMRecord read1, final SAMRecord read2) {
         final SAMRecordCoordinateComparator coordinateComparator = new SAMRecordCoordinateComparator();
+        if (!Objects.equals(read1.getReadName(), read2.getReadName())){
+            return "name different read1:" + read1.getReadName() + " read2:" + read2.getReadName() ;
+        }
         if (!Objects.equals(read1.getFlags(), read2.getFlags())){
             return "flags different read1:" + read1.getReadName() + " read2:" + read2.getReadName() ;
         }
@@ -158,9 +191,6 @@ public final class SamAssertionUtils {
         //Note the comparator does check flags, MQ and insert size but we want better messages
         if (0 != coordinateComparator.fileOrderCompare(read1, read2)){
             return "file order read1:" + read1.getContig() + ":" + read1.getAlignmentStart() + " read2:" + read2.getContig() + ":" + read2.getAlignmentStart();
-        }
-        if (!Objects.equals(read1.getReadName(), read2.getReadName())){
-            return "name different read1:" + read1.getReadName() + " read2:" + read2.getReadName() ;
         }
         if (!Objects.equals(read1.getCigar(), read2.getCigar())){
             return "getCigar different read1:" + read1.getReadName() + " read2:" + read2.getReadName() ;
